@@ -42,8 +42,8 @@ public class OplusProxyFix extends XposedModule {
      * the UID involved in the current FCM delivery unfrozen and online for the same kind of
      * short execution window Android grants to high-priority push work.
      */
-    private static final ConcurrentHashMap<Integer, Long> sFcmDeliveryWindows =
-            new ConcurrentHashMap<>();
+    private static final com.kooritea.fcmfix.util.FcmDeliveryWindow sFcmDeliveryWindows =
+            new com.kooritea.fcmfix.util.FcmDeliveryWindow();
     private static final ConcurrentHashMap<Integer, String> sFcmDeliveryPackages =
             new ConcurrentHashMap<>();
 
@@ -121,7 +121,7 @@ public class OplusProxyFix extends XposedModule {
                         if (target == null) {
                             target = findAllowedPackageArgument(param.args);
                         }
-                        if (target != null && targetIsAllow(target)) {
+                        if (trustedDelivery(intent, target, param)) {
                             printLog("Oplus shouldProxy bypass: pkg=" + target
                                     + ", action=" + intent.getAction(), true);
                             param.setResult(finalNoProxyResult);
@@ -247,19 +247,14 @@ public class OplusProxyFix extends XposedModule {
         int uid = getTargetUidFromPackageName(target);
         if (uid < 0) return;
 
-        long expiresAt = SystemClock.elapsedRealtime() + FCM_DELIVERY_WINDOW_MS;
-        sFcmDeliveryWindows.merge(uid, expiresAt, Math::max);
+        sFcmDeliveryWindows.begin(uid, SystemClock.elapsedRealtime());
         sFcmDeliveryPackages.put(uid, target);
         printLog("Oplus FCM delivery window: pkg=" + target + ", uid=" + uid
                 + ", duration=" + FCM_DELIVERY_WINDOW_MS + "ms", true);
     }
 
-    private static boolean isInFcmDeliveryWindow(int uid) {
-        Long expiresAt = sFcmDeliveryWindows.get(uid);
-        if (expiresAt == null) return false;
-        if (SystemClock.elapsedRealtime() < expiresAt) return true;
-
-        sFcmDeliveryWindows.remove(uid, expiresAt);
+    static boolean isInFcmDeliveryWindow(int uid) {
+        if (sFcmDeliveryWindows.contains(uid, SystemClock.elapsedRealtime())) return true;
         sFcmDeliveryPackages.remove(uid);
         return false;
     }
@@ -468,6 +463,10 @@ public class OplusProxyFix extends XposedModule {
                     || !isBooleanType(method.getReturnType())) {
                 continue;
             }
+            if (attributionIndex(method) < 0) {
+                logOnce("Unsupported Oplus delivery signature: " + describeMethod(method));
+                continue;
+            }
             XposedBridge.hookMethod(method, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
@@ -476,7 +475,7 @@ public class OplusProxyFix extends XposedModule {
 
                     String target = getIntentTarget(intent);
                     if (target == null) target = findCalleePackage(param.args);
-                    if (target != null && targetIsAllow(target)) {
+                    if (trustedDelivery(intent, target, param)) {
                         printLog("Oplus classify restriction bypass: pkg=" + target
                                 + ", action=" + intent.getAction(), true);
                         param.setResult(false);
@@ -503,6 +502,10 @@ public class OplusProxyFix extends XposedModule {
                     || !isBooleanType(method.getReturnType())) {
                 continue;
             }
+            if (attributionIndex(method) < 0) {
+                logOnce("Unsupported Oplus delivery signature: " + describeMethod(method));
+                continue;
+            }
             XposedBridge.hookMethod(method, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
@@ -511,7 +514,7 @@ public class OplusProxyFix extends XposedModule {
                         return;
                     }
                     String target = findCalleePackage(param.args);
-                    if (target != null && targetIsAllow(target)) {
+                    if (trustedDelivery(findIntentArgument(param.args), target, param)) {
                         printLog("Oplus GCM bind-service bypass: pkg=" + target, true);
                         param.setResult(true);
                     }
@@ -534,6 +537,10 @@ public class OplusProxyFix extends XposedModule {
                     || !isBooleanType(method.getReturnType())) {
                 continue;
             }
+            if (attributionIndex(method) < 0) {
+                logOnce("Unsupported Oplus delivery signature: " + describeMethod(method));
+                continue;
+            }
             XposedBridge.hookMethod(method, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
@@ -541,7 +548,7 @@ public class OplusProxyFix extends XposedModule {
                     if (intent == null || !isFCMIntent(intent)) return;
 
                     String target = findCalleePackage(param.args);
-                    if (target != null && targetIsAllow(target)) {
+                    if (trustedDelivery(intent, target, param)) {
                         printLog("Oplus FCM start-service bypass: pkg=" + target
                                 + ", action=" + intent.getAction(), true);
                         param.setResult(true);
