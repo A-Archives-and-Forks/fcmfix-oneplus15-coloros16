@@ -236,10 +236,10 @@ public class OplusProxyFix extends XposedModule {
         } catch (InvocationTargetException e) {
             Throwable cause = e.getCause() == null ? e : e.getCause();
             printLog("Oplus unfreeze invocation failed: " + cause.getClass().getSimpleName()
-                    + ": " + cause.getMessage(), true);
+                    + ": " + cause.getMessage());
         } catch (Throwable e) {
             printLog("Oplus unfreeze invocation failed: " + e.getClass().getSimpleName()
-                    + ": " + e.getMessage(), true);
+                    + ": " + e.getMessage());
         }
     }
 

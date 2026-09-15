@@ -9,12 +9,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Process;
+import android.os.SystemClock;
 import android.os.UserManager;
 import android.util.Log;
 import com.kooritea.fcmfix.util.FcmTrust;
 import com.kooritea.fcmfix.util.ConfigSnapshot;
+import com.kooritea.fcmfix.util.DiagnosticLogger;
 import com.kooritea.fcmfix.util.OplusAttribution;
 import java.lang.reflect.Method;
 
@@ -50,6 +54,9 @@ public abstract class XposedModule {
     public static volatile boolean isBootComplete = false;
     private static Thread loadConfigThread = null;
     private static final Set<String> loggedWarnings = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final DiagnosticLogger diagnosticLogger = new DiagnosticLogger(
+            text -> XposedBridge.log("[fcmfix] " + text),
+            error -> Log.w(TAG, "Diagnostic logging/relay failed; further relay warnings suppressed", error));
 
     protected static void logOnce(String message) {
         // Bounded deduplication so third-party spam cannot grow system_server memory indefinitely.
@@ -123,20 +130,32 @@ public abstract class XposedModule {
         printLog(text, false);
     }
 
-    protected static void printLog(String text, Boolean isDiagnosticsLog) {
-        Log.d(TAG, text);
-        if (isDiagnosticsLog) {
-            Intent log = new Intent(ACTION_LOG);
-            log.setPackage("com.google.android.gms");
-            log.putExtra("text", "[" + getSelfPackageName() + "]" + text);
+    protected static void printLog(String text, boolean isDiagnosticsLog) {
+        Context logContext = context;
+        diagnosticLogger.log("[" + getSelfPackageName() + "]" + text, isDiagnosticsLog,
+                SystemClock.elapsedRealtime(), logContext == null ? null
+                        : message -> sendDiagnosticLog(logContext, message));
+    }
 
-            try {
-                context.sendBroadcast(log);
-            } catch (Throwable e) {
-                XposedBridge.log("[fcmfix] [" + getSelfPackageName() + "]" + text);
-            }
+    // Lint reads the module APK manifest, but this bridge runs inside the host process.
+    // The signature permission is checked against that host at runtime below; do not
+    // request it for the module APK or suppress permission checking anywhere else.
+    @SuppressLint("MissingPermission")
+    private static void sendDiagnosticLog(Context logContext, String message) {
+        Intent log = new Intent(ACTION_LOG);
+        log.setPackage("com.google.android.gms");
+        log.putExtra("text", message);
+        // Our own worker has no incoming GMS Binder identity.
+        if (logContext.checkSelfPermission("android.permission.INTERACT_ACROSS_USERS")
+                == PackageManager.PERMISSION_GRANTED) {
+            logContext.sendBroadcastAsUser(log, Process.myUserHandle());
+        } else if (Process.myUid() != Process.SYSTEM_UID) {
+            // An ordinary app context already belongs to its own user. The qualified-user
+            // warning is specific to system UID; preserve the ordinary-app relay path.
+            logContext.sendBroadcast(log);
         } else {
-            XposedBridge.log("[fcmfix] [" + getSelfPackageName() + "]" + text);
+            // The logger catches this and retains local output without a noisy fallback.
+            throw new SecurityException("Host cannot send a user-qualified diagnostic broadcast");
         }
     }
 

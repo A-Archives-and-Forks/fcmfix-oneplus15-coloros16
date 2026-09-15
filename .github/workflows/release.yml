@@ -46,7 +46,8 @@ jobs:
         with:
           tag_name: ${{ env.VERSION_NAME }}
           name: FCMFix ColorOS (${{ env.VERSION_NAME }})
-          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          body_path: docs/releases/${{ env.VERSION_NAME }}.md
           files: |
             app/build/outputs/apk/release/fcmfix-coloros-${{ env.VERSION_NAME }}.apk
             app/build/outputs/apk/release/SHA256SUMS

@@ -7,7 +7,7 @@ ColorOS 16 阻止 Google FCM 唤醒后台、无进程或已停止应用的问题
 FCM。它的作用是在 Google Play 服务已经收到消息后，修复消息从 GMS 传递到目标应用
 时被 ColorOS 拦截的问题。
 
-> 开发分支正在进行安全加固。下方历史实机结果属于已发布版本，不代表本轮修改已经
+> 当前候选版为 [53-coloros-9-rc1](https://github.com/Artifical0/fcmfix-oneplus15-coloros16/releases/tag/53-coloros-9-rc1)，包含安全加固与日志优化。下方历史实机结果属于此前已发布版本，不代表本轮修改已经
 > 通过真机回归；本轮验证状态、行为变化和测试清单见 [发布加固记录](docs/release-hardening.md)。
 
 ## 它解决的是什么问题
