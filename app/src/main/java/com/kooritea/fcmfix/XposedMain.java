@@ -22,6 +22,10 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
         XposedModule.setSelfPackageName("android");
 
         ClassLoader classLoader = param.getClassLoader();
+        // Signature mismatches are per-OTA; record which firmware produced the hook log.
+        XposedBridge.log("[fcmfix] firmware: sdk=" + android.os.Build.VERSION.SDK_INT
+                + ", oplusrom=" + systemProperty("ro.build.version.oplusrom.display")
+                + ", display=" + android.os.Build.DISPLAY);
         XposedBridge.log("[fcmfix] start hook com.android.server.am.ActivityManagerService/com.android.server.am.BroadcastController");
         new BroadcastFix(classLoader);
 
@@ -39,6 +43,15 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
 
         XposedBridge.log("[fcmfix] start hook com.android.server.OplusDeviceIdleHelper");
         new OplusDeviceIdleFix(classLoader);
+    }
+
+    private static String systemProperty(String key) {
+        try {
+            Class<?> properties = Class.forName("android.os.SystemProperties");
+            return (String) properties.getMethod("get", String.class, String.class).invoke(null, key, "unknown");
+        } catch (Throwable e) {
+            return "unknown";
+        }
     }
 
     @Override

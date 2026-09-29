@@ -52,6 +52,21 @@ public final class XposedBridge {
         return callback.new Unhook(new HookHandleWrapper(handle));
     }
 
+    /**
+     * Force a caller back to non-inlined execution so hooks on its short callees fire.
+     * Returns false instead of throwing; a failed deoptimization only loses that layer.
+     */
+    public static boolean deoptimize(Member member) {
+        ensureInit();
+        if (!(member instanceof java.lang.reflect.Executable)) return false;
+        try {
+            return xposedInterface.deoptimize((java.lang.reflect.Executable) member);
+        } catch (Throwable e) {
+            log("deoptimize failed: " + member + ": " + e);
+            return false;
+        }
+    }
+
     public static Object invokeOriginalMethod(Member method, Object thisObject, Object[] args) throws Throwable {
         ensureInit();
         if (method instanceof Method) {

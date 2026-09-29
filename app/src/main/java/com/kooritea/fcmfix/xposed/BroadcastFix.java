@@ -37,6 +37,11 @@ public class BroadcastFix extends XposedModule {
         }catch (Throwable e) {
             printLog("hook error broadcastIntentLocked:" + e.getMessage());
         }
+        try{
+            this.deoptimizeBroadcastCallers();
+        }catch (Throwable e) {
+            printLog("hook error broadcast deoptimize:" + e.getMessage());
+        }
 //        try{
 //            this.startHookScheduleResultTo();
 //        }catch (Throwable e) {
@@ -45,7 +50,7 @@ public class BroadcastFix extends XposedModule {
     }
 
     /**
-     * Android 16 / ColorOS 16 validates and may clone the incoming Intent
+     * Android 16-17 / ColorOS 16-17 validates and may clone the incoming Intent
      * before entering broadcastIntentLocked. Hook the Binder-facing entry so
      * FLAG_INCLUDE_STOPPED_PACKAGES survives that copy.
      */
@@ -84,7 +89,7 @@ public class BroadcastFix extends XposedModule {
             // AMS delegates to BroadcastController; do not install a second entry there.
             if (hookCount > 0) break;
         }
-        printLog("ColorOS 16 broadcast entry hooks active: " + hookCount);
+        printLog("broadcast entry hooks active: " + hookCount);
     }
 
     protected void startHookBroadcastIntentLocked(){
@@ -103,7 +108,10 @@ public class BroadcastFix extends XposedModule {
             }
 
             for (Method method : clazz.getDeclaredMethods()) {
-                if (!"broadcastIntentLocked".equals(method.getName())) {
+                // Android 15+ moved the body into broadcastIntentLockedTraced; on Android 17
+                // (ColorOS 17) the thin broadcastIntentLocked wrapper may be inlined away.
+                if (!"broadcastIntentLocked".equals(method.getName())
+                        && !"broadcastIntentLockedTraced".equals(method.getName())) {
                     continue;
                 }
                 int intentArgsIndex = findIntentParameterIndex(method);
@@ -131,6 +139,31 @@ public class BroadcastFix extends XposedModule {
         } else {
             printLog("broadcastIntentLocked hooks active: " + hookCount);
         }
+    }
+
+    /**
+     * AOT-compiled services.jar may inline the short broadcast wrappers into their callers,
+     * so hooks on those wrappers never run. Deoptimize only the framework-side broadcast
+     * chain (not the Binder stub) to keep the extra interpreter cost confined to it.
+     */
+    protected void deoptimizeBroadcastCallers() {
+        String[] classes = new String[]{
+                "com.android.server.am.ActivityManagerService",
+                "com.android.server.am.BroadcastController"
+        };
+        Set<String> callers = new HashSet<>(java.util.Arrays.asList(
+                "broadcastIntentWithFeature",
+                "broadcastIntentInPackage",
+                "broadcastIntentLocked"));
+        int count = 0;
+        for (String className : classes) {
+            Class<?> clazz = XposedHelpers.findClassIfExists(className, classLoader);
+            if (clazz == null) continue;
+            for (Method method : clazz.getDeclaredMethods()) {
+                if (callers.contains(method.getName()) && XposedBridge.deoptimize(method)) count++;
+            }
+        }
+        printLog("broadcast callers deoptimized: " + count);
     }
 
     private int findIntentParameterIndex(Method method) {

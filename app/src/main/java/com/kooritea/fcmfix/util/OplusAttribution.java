@@ -2,7 +2,8 @@ package com.kooritea.fcmfix.util;
 
 import java.util.Arrays;
 
-/** Exact signatures verified against the PLK110 ColorOS 16 framework. Unknown OTAs fail closed. */
+/** Exact signatures verified against the PLK110 ColorOS 16 framework. Unknown OTAs (including
+ * unverified ColorOS 17 builds) fail closed and log the unsupported signature. */
 public final class OplusAttribution {
     private static final String MANAGER = "com.android.server.am.OplusAppStartupManager";
     private static final String PROCESS = "com.android.server.am.ProcessRecord";
