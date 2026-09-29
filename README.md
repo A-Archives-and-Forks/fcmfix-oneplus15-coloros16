@@ -10,9 +10,9 @@ FCM。它的作用是在 Google Play 服务已经收到消息后，修复消息�
 > 当前候选版为 [53-coloros-9-rc1](https://github.com/Artifical0/fcmfix-oneplus15-coloros16/releases/tag/53-coloros-9-rc1)，包含安全加固与日志优化。下方历史实机结果属于此前已发布版本，不代表本轮修改已经
 > 通过真机回归；本轮验证状态、行为变化和测试清单见 [发布加固记录](docs/release-hardening.md)。
 
-> **ColorOS 17**：[53-coloros-10-rc1](docs/releases/53-coloros-10-rc1.md) 已处理 Android 17 广播路径
-> 内联导致的 Hook 失效，但尚未在 ColorOS 17 真机验证，ColorOS 专有 Hook 仍按 ColorOS 16 签名匹配。
-> 升级后请按发布说明提供日志。
+> **ColorOS 17**：[53-coloros-10-rc1](docs/releases/53-coloros-10-rc1.md) 已按一加 15 国行
+> `PLK110_17.0.0.102(CN01)` 全量包核对并适配全部 Hook 点（[核对记录](docs/oneplus15-coloros17-fcm-analysis.md)），
+> 尚待真机回归。
 
 ## 它解决的是什么问题
 
@@ -189,6 +189,7 @@ package stopped 状态下的 FCM 投递。
 
 - [下载最新版本](https://github.com/Artifical0/fcmfix-oneplus15-coloros16/releases/latest)
 - [一加 15 ColorOS 16 国行/国际版差分与 Hook 分析](docs/oneplus15-coloros16-fcm-analysis.md)
+- [一加 15 ColorOS 17 Hook 核对](docs/oneplus15-coloros17-fcm-analysis.md)
 - [酷安、公众号与技术论坛发布素材](docs/publishing-kit.md)
 - 上游项目：[kooritea/fcmfix](https://github.com/kooritea/fcmfix)
 

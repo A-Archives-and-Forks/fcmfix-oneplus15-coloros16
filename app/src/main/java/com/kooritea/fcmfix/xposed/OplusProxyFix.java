@@ -31,6 +31,8 @@ public class OplusProxyFix extends XposedModule {
             "com.android.server.hans.scene.HansSceneManager";
     private static final String OPLUS_HANS_CGROUP =
             "com.android.server.hans.freeze.HansCGroup";
+    private static final String OPLUS_BROADCAST_PROXY_ACTION =
+            "com.android.server.am.BroadcastProxyAction";
     private static final String TYPE_BIND_SERVICE_FROM_GCM = "bsgcm";
     private static final String START_PROCESS_FROM_GCM_BIND_SERVICE = "system[gcm]";
     private static final long FCM_DELIVERY_WINDOW_MS = 20_000L;
@@ -76,6 +78,7 @@ public class OplusProxyFix extends XposedModule {
         runHook("OAppNetControlService", this::startHookOAppNetControlService);
         runHook("HansSceneManager FCM window", this::startHookHansFcmWindow);
         runHook("HansCGroup FCM window", this::startHookHansCGroupFcmWindow);
+        runHook("CpnProxy broadcast", this::startHookCpnProxyBroadcast);
     }
 
     private interface HookAction {
@@ -135,6 +138,39 @@ public class OplusProxyFix extends XposedModule {
         if (hookCount == 0) {
             throw new NoSuchMethodError("No compatible Oplus shouldProxy method");
         }
+    }
+
+    /**
+     * ColorOS 17 Osense scene proxy (game / app start / camera) can hold broadcasts for cold
+     * targets. Its action list is loaded from cloud-updatable config, so exempt only a
+     * BroadcastRecord-attributed GMS RECEIVE to an allowlisted target.
+     */
+    private void startHookCpnProxyBroadcast() {
+        Class<?> actionClass = XposedHelpers.findClassIfExists(OPLUS_BROADCAST_PROXY_ACTION, classLoader);
+        if (actionClass == null) throw new NoClassDefFoundError(OPLUS_BROADCAST_PROXY_ACTION);
+
+        int hooks = 0;
+        for (Method method : actionClass.getDeclaredMethods()) {
+            if (!"enqueueProxyBroadcastLocked".equals(method.getName())
+                    || !isBooleanType(method.getReturnType())) {
+                continue;
+            }
+            XposedBridge.hookMethod(method, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    Intent intent = findIntentArgument(param.args);
+                    if (intent == null || !isFCMAction(intent.getAction())) return;
+                    String target = getIntentTarget(intent);
+                    if (trustedDelivery(intent, target, param)) {
+                        printLog("Oplus CpnProxy broadcast bypass: pkg=" + target, true);
+                        param.setResult(false);
+                    }
+                }
+            });
+            hooks++;
+            printLog("Oplus CpnProxy broadcast hook active: " + describeMethod(method));
+        }
+        if (hooks == 0) throw new NoSuchMethodError("BroadcastProxyAction#enqueueProxyBroadcastLocked");
     }
 
     private void startHookOplusProxyWakeLock() {
@@ -370,10 +406,7 @@ public class OplusProxyFix extends XposedModule {
                 });
                 hooks++;
                 printLog("Oplus Hans cgroup hook active: " + describeMethod(method));
-            } else if ("FastFreezeEnter".equals(method.getName())
-                    && method.getReturnType() == void.class
-                    && method.getParameterTypes().length == 1
-                    && method.getParameterTypes()[0] == int.class) {
+            } else if (isFastFreezeEnter(method)) {
                 XposedBridge.hookMethod(method, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -390,6 +423,13 @@ public class OplusProxyFix extends XposedModule {
             }
         }
         if (hooks == 0) throw new NoSuchMethodError("HansCGroup freeze methods");
+    }
+
+    private static boolean isFastFreezeEnter(Method method) {
+        String[] types = java.util.Arrays.stream(method.getParameterTypes())
+                .map(Class::getName).toArray(String[]::new);
+        return com.kooritea.fcmfix.util.HansSignature.isFastFreezeEnter(
+                method.getName(), method.getReturnType().getName(), types);
     }
 
     private int getHansPackageUid(Object hansPackage) {
@@ -463,6 +503,9 @@ public class OplusProxyFix extends XposedModule {
                     || !isBooleanType(method.getReturnType())) {
                 continue;
             }
+            // ColorOS 17 adds isAppClassifyRestricted(int,String,String,Long), a per-user
+            // lookup with no Intent. It is not a delivery decision; skip it silently.
+            if (!java.util.Arrays.asList(method.getParameterTypes()).contains(Intent.class)) continue;
             if (attributionIndex(method) < 0) {
                 logOnce("Unsupported Oplus delivery signature: " + describeMethod(method));
                 continue;
