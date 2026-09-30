@@ -159,6 +159,8 @@ package stopped 状态下的 FCM 投递。
 
 ## 排查方法
 
+提交问题前，请按 [如何提交问题与日志](docs/report-issue.md) 用脚本导出报告。
+
 如果仍然收不到推送，依次检查：
 
 1. LSPosed 中是否只启用了一个 FCMFix；
