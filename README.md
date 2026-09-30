@@ -89,7 +89,7 @@ ColorOS 17 的系统框架据此降级 GMS 闹钟并把 Google 应用放入 RARE
 - 目标应用的系统通知权限或应用内部通知开关已关闭；
 - VPN、代理、DNS 或网络环境本身无法连接 FCM。国内 `mtalk.google.com` 的解析常被污染，
   部分网络还会封锁 5228–5230 端口；FCM Diagnostics 亮屏时也一直 disconnected 时，
-  需要自行解决 DNS、hosts 或代理；
+  需要自行解决 DNS、hosts 或代理（[判断方法](docs/report-issue.md#fcm-断开网络问题还是系统限制)）；
 - OTA 更新后 ColorOS 修改了关键类名或方法，导致现有 Hook 失配。
 
 本模块不会安装 Google 服务，不会替代 GMS，也不会绕过应用自身的通知设置。
