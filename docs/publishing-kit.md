@@ -10,8 +10,8 @@
 - 适用设备：一加 15 国行版（PLK110）
 - 已验证系统：ColorOS `16.0.10.500` / Android 16
 - 运行条件：Root、LSPosed、已安装并能联网的 Google Play 服务
-- GitHub：<https://github.com/Artifical0/fcmfix-oneplus15-coloros16>
-- 最新版本：<https://github.com/Artifical0/fcmfix-oneplus15-coloros16/releases/latest>
+- GitHub：<https://github.com/Artifical0/fcmfix-coloros>
+- 最新版本：<https://github.com/Artifical0/fcmfix-coloros/releases/latest>
 - APK SHA-256：见对应 GitHub Release 说明
 - 上游项目：<https://github.com/kooritea/fcmfix>
 
@@ -100,10 +100,10 @@ Nekogram，应用恢复为 stopped=false，并在约 0.57 秒后生成通知。
 项目源码公开，APK 本身不申请 INTERNET 权限，不经过开发者服务器中转消息。
 
 GitHub：
-https://github.com/Artifical0/fcmfix-oneplus15-coloros16
+https://github.com/Artifical0/fcmfix-coloros
 
 下载：
-https://github.com/Artifical0/fcmfix-oneplus15-coloros16/releases/latest
+https://github.com/Artifical0/fcmfix-coloros/releases/latest
 
 SHA-256：见对应 GitHub Release 说明
 
@@ -164,10 +164,10 @@ LSPosed 作用域只需要勾选“系统框架”和“电池 com.oplus.battery
 获得推送。系统 OTA 后关键类和方法可能变化，因此每次大版本更新都应重新测试。
 
 项目源码、APK 和完整技术分析均已公开：
-https://github.com/Artifical0/fcmfix-oneplus15-coloros16
+https://github.com/Artifical0/fcmfix-coloros
 
 已验证版本下载：
-https://github.com/Artifical0/fcmfix-oneplus15-coloros16/releases/latest
+https://github.com/Artifical0/fcmfix-coloros/releases/latest
 ```
 
 ## 技术论坛发布稿
@@ -204,7 +204,7 @@ stopped=true、无进程状态下，由 GMS UID 10123 通过 c2dm.RECEIVE 拉起
 作用域：system + com.oplus.battery。
 
 源码与分析：
-https://github.com/Artifical0/fcmfix-oneplus15-coloros16
+https://github.com/Artifical0/fcmfix-coloros
 ```
 
 ## 简短转发文案
@@ -215,7 +215,7 @@ stopped=true 后 GMS 无法拉起的问题，并修复 ColorOS 自动禁用 Goog
 已在 PLK110 16.0.10.500 用 Nekogram 完成强停实测。需要 Root + LSPosed，作用域为
 系统框架 + 电池。
 
-项目与下载：https://github.com/Artifical0/fcmfix-oneplus15-coloros16
+项目与下载：https://github.com/Artifical0/fcmfix-coloros
 ```
 
 ## 建议配图
