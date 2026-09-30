@@ -12,6 +12,8 @@ public class OplusDeviceIdleFix extends XposedModule {
 
     private static final String OPLUS_DEVICE_IDLE_HELPER =
             "com.android.server.OplusDeviceIdleHelper";
+    private static final String OPLUS_GOOGLE_RESTRICTION_HELPER =
+            "com.android.server.OplusGoogleRestrictionHelper";
     private static final String[] GOOGLE_DOZE_PACKAGES = new String[]{
             "com.google.android.gms",
             "com.google.android.gsf",
@@ -26,6 +28,42 @@ public class OplusDeviceIdleFix extends XposedModule {
             printLog("hook error OplusDeviceIdleFix: "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
+        try {
+            startHookGoogleAlarmRestrict();
+        } catch (Throwable e) {
+            printLog("hook error Oplus Google alarm restrict: "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * ColorOS 17 OplusGoogleAlarmRestrict turns GMS *_WAKEUP alarms into non-wakeup ones
+     * while this helper reports Google as restricted, which stalls the FCM heartbeat in
+     * Doze. The battery-side hook clears the source broadcast; this covers a missing
+     * battery scope. Reporting "not restricted" also restores already-downgraded alarms.
+     */
+    private void startHookGoogleAlarmRestrict() {
+        Class<?> helperClass = XposedHelpers.findClassIfExists(
+                OPLUS_GOOGLE_RESTRICTION_HELPER, classLoader);
+        if (helperClass == null) throw new NoClassDefFoundError(OPLUS_GOOGLE_RESTRICTION_HELPER);
+
+        int hooks = 0;
+        for (Method method : helperClass.getDeclaredMethods()) {
+            if (!"isGoogleRestrct".equals(method.getName())
+                    || method.getParameterTypes().length != 0
+                    || method.getReturnType() != boolean.class) {
+                continue;
+            }
+            XposedBridge.hookMethod(method, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    param.setResult(false);
+                }
+            });
+            hooks++;
+            printLog("Oplus Google alarm restriction hook active: " + describeMethod(method));
+        }
+        if (hooks == 0) throw new NoSuchMethodError(OPLUS_GOOGLE_RESTRICTION_HELPER + "#isGoogleRestrct");
     }
 
     private void startHook() {

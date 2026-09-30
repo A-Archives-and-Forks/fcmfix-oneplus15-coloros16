@@ -44,3 +44,18 @@
   `false`（不代理），其余保持系统原行为。
 - `IOplusGoogleDozeRestrict`：新接口，但 `OplusJobSchedulerServiceFactoryImpl` 未提供实现，运行时为默认空实现，
   本固件无需处理。
+
+## Google 限制广播（53-coloros-10-rc2）
+
+用户反馈 rc1 在 ColorOS 17 上 FCM 连不上。继续核对后确认还有一条未覆盖的路径：
+
+- `Battery.apk` 的 `GoogleRestrictionController` 在连通性探测失败时，除了 `setUidPolicy(uid, 4)`，还会带
+  `oplus.permission.OPLUS_COMPONENT_SAFE` 权限广播 `oplus.intent.action.google_restrict_change`
+  （`restrict_enable`、`restrict_list`、`restrict_list_change`），并写入 `google_restric_info=1`。
+- system_server 中有三个监听者：
+  - `oplus-service-jobscheduler.jar` 的 `OplusGoogleRestrictionHelper` → `OplusGoogleAlarmRestrict.updateGoogleAlarmTypeAndTag`：
+    把受限 Google 包的 `RTC_WAKEUP(0)` / `ELAPSED_REALTIME_WAKEUP(2)` 改为 `RTC(1)` / `ELAPSED_REALTIME(3)`；
+  - `AppStandbyControllerExtImpl`：受限时把名单内的包放入 bucket 40（RARE，reason 1536）；
+  - `OplusNetworkPolicyManagerServiceEx.matchGoogleRestrictRule`：受 `getGoogleRestrictSwitch()` 约束，模块已将其置为 false。
+- 处理：在电池进程拦截该广播，只把 `restrict_enable=true` 改为 `false`；system_server 中 `isGoogleRestrct()`
+  返回 `false` 作为兜底（全固件仅闹钟限制调用）。

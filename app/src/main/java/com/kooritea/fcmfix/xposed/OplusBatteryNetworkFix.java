@@ -1,5 +1,6 @@
 package com.kooritea.fcmfix.xposed;
 
+import android.content.Intent;
 import android.content.pm.PackageManager;
 
 import com.kooritea.fcmfix.libxposed.XC_MethodHook;
@@ -18,6 +19,8 @@ public class OplusBatteryNetworkFix extends XposedModule {
 
     private static final String NETWORK_CONTROL_MANAGER =
             "android.net.OplusNetworkingControlManager";
+    private static final String GOOGLE_RESTRICT_CHANGE = "oplus.intent.action.google_restrict_change";
+    private static final String EXTRA_RESTRICT_ENABLE = "restrict_enable";
     private static final int POLICY_REJECT_ALL = 4;
     private static final int POLICY_NONE = 0;
     private static final String[] GOOGLE_NETWORK_PACKAGES = new String[]{
@@ -35,6 +38,45 @@ public class OplusBatteryNetworkFix extends XposedModule {
             printLog("hook error Oplus Battery GMS network policy: "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
+        try {
+            startHookGoogleRestrictBroadcast();
+        } catch (Throwable e) {
+            printLog("hook error Oplus Battery Google restrict broadcast: "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * The same failed Google probe also broadcasts google_restrict_change. On ColorOS 17
+     * system_server then downgrades GMS wakeup alarms (OplusGoogleAlarmRestrict) and puts
+     * Google packages in the RARE standby bucket, so the FCM heartbeat/reconnect stops in
+     * Doze. Clear only the restrict_enable=true flag; list updates pass through unchanged.
+     */
+    private void startHookGoogleRestrictBroadcast() {
+        Class<?> contextImpl = XposedHelpers.findClass("android.app.ContextImpl", classLoader);
+        int hooks = 0;
+        for (Method method : contextImpl.getDeclaredMethods()) {
+            Class<?>[] parameters = method.getParameterTypes();
+            if (!method.getName().startsWith("sendBroadcast")
+                    || parameters.length == 0 || parameters[0] != Intent.class) {
+                continue;
+            }
+            XposedBridge.hookMethod(method, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    Intent intent = (Intent) param.args[0];
+                    if (intent == null || !GOOGLE_RESTRICT_CHANGE.equals(intent.getAction())
+                            || !intent.getBooleanExtra(EXTRA_RESTRICT_ENABLE, false)) {
+                        return;
+                    }
+                    intent.putExtra(EXTRA_RESTRICT_ENABLE, false);
+                    printLog("Oplus Battery Google restrict broadcast cleared", true);
+                }
+            });
+            hooks++;
+        }
+        if (hooks == 0) throw new NoSuchMethodError("ContextImpl#sendBroadcast(Intent...)");
+        printLog("Oplus Battery Google restrict broadcast hooks active: " + hooks);
     }
 
     private void startHookGoogleNetworkPolicy() {
